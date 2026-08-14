@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Racket Controller</title>
+<style>
+  body { margin:0; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+         background:#111; color:#fff; font-family:sans-serif; text-align:center; }
+  button { font-size:20px; padding:16px 32px; border-radius:12px; border:none; background:#4CAF50; color:#fff; margin-top:20px; }
+  #status { margin-top:16px; font-size:14px; opacity:0.7; }
+</style>
+</head>
+<body>
+  <h2>🎾 Racket Controller</h2>
+  <button id="startBtn">เริ่มเชื่อมต่อ / เปิดเซนเซอร์</button>
+  <div id="status">ยังไม่ได้เชื่อมต่อ</div>
+
+<script>
+// อ่าน gameId จาก query string เช่น ?gameId=TENNIS-1234
+const params = new URLSearchParams(window.location.search);
+const gameId = params.get("gameId") || "UNKNOWN";
+
+// เชื่อมต่อ WebSocket กลับไปที่ host เดียวกับที่เสิร์ฟหน้านี้ (PC ที่รันเกม)
+const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+const wsUrl = wsProtocol + window.location.host + "/";
+let socket = null;
+const statusEl = document.getElementById("status");
+
+function connect() {
+  socket = new WebSocket(wsUrl);
+  socket.onopen = () => { statusEl.textContent = "เชื่อมต่อสำเร็จ (" + gameId + ")"; };
+  socket.onclose = () => { statusEl.textContent = "การเชื่อมต่อถูกตัด — กดปุ่มเพื่อลองใหม่"; };
+  socket.onerror = () => { statusEl.textContent = "เชื่อมต่อไม่สำเร็จ"; };
+}
+
+function sendMotion(gx, gy, gz) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(gx + "," + gy + "," + gz);
+  }
+}
+
+function onOrientation(event) {
+  // beta = หน้า-หลัง, gamma = ซ้าย-ขวา, alpha = หมุนรอบตัว
+  const gx = event.beta || 0;
+  const gy = event.gamma || 0;
+  const gz = event.alpha || 0;
+  sendMotion(gx, gy, gz);
+}
+
+document.getElementById("startBtn").addEventListener("click", async () => {
+  connect();
+
+  // iOS 13+ ต้องขอ permission ก่อนถึงจะอ่าน DeviceOrientation ได้
+  if (typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function") {
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm === "granted") {
+        window.addEventListener("deviceorientation", onOrientation);
+      } else {
+        statusEl.textContent = "ไม่ได้รับอนุญาตให้ใช้เซนเซอร์";
+      }
+    } catch (e) {
+      statusEl.textContent = "ขอ permission ไม่สำเร็จ: " + e;
+    }
+  } else {
+    // Android และเบราว์เซอร์อื่น ๆ ไม่ต้องขอ permission
+    window.addEventListener("deviceorientation", onOrientation);
+  }
+});
+</script>
+</body>
+</html>
