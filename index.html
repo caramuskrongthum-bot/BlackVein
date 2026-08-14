@@ -1,74 +1,86 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>Racket Controller</title>
-<style>
-  body { margin:0; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-         background:#111; color:#fff; font-family:sans-serif; text-align:center; }
-  button { font-size:20px; padding:16px 32px; border-radius:12px; border:none; background:#4CAF50; color:#fff; margin-top:20px; }
-  #status { margin-top:16px; font-size:14px; opacity:0.7; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Controller</title>
+    <!-- โหลด PeerJS ให้ชัวร์ว่าเป็น HTTPS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #0f172a; color: #fff; padding: 20px; }
+        button { font-size: 20px; padding: 16px 32px; border-radius: 12px; background: #0284c7; color: white; border: none; font-weight: bold; width: 100%; margin-top: 20px; }
+        .status { margin-top: 20px; font-size: 16px; color: #fbbf24; font-weight: bold; }
+    </style>
 </head>
 <body>
-  <h2>🎾 Racket Controller</h2>
-  <button id="startBtn">เริ่มเชื่อมต่อ / เปิดเซนเซอร์</button>
-  <div id="status">ยังไม่ได้เชื่อมต่อ</div>
+    <h2>🎾 Tennis Motion Controller</h2>
+    <div id="status" class="status">🔴 ยังไม่ได้กดเชื่อมต่อ</div>
+    <button id="startBtn" onclick="initController()">1. อนุญาตเซนเซอร์ & เชื่อมต่อ</button>
 
-<script>
-// อ่าน gameId จาก query string เช่น ?gameId=TENNIS-1234
-const params = new URLSearchParams(window.location.search);
-const gameId = params.get("gameId") || "UNKNOWN";
+    <script>
+        // ดึงค่า gameId จาก URL ที่ได้จากการสแกน QR Code
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostId = urlParams.get('gameId');
 
-// เชื่อมต่อ WebSocket กลับไปที่ host เดียวกับที่เสิร์ฟหน้านี้ (PC ที่รันเกม)
-const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-const wsUrl = wsProtocol + window.location.host + "/";
-let socket = null;
-const statusEl = document.getElementById("status");
+        let peer;
+        let conn;
 
-function connect() {
-  socket = new WebSocket(wsUrl);
-  socket.onopen = () => { statusEl.textContent = "เชื่อมต่อสำเร็จ (" + gameId + ")"; };
-  socket.onclose = () => { statusEl.textContent = "การเชื่อมต่อถูกตัด — กดปุ่มเพื่อลองใหม่"; };
-  socket.onerror = () => { statusEl.textContent = "เชื่อมต่อไม่สำเร็จ"; };
-}
+        function initController() {
+            if (!hostId) {
+                alert("ไม่พบรหัสห้อง (gameId)! กรุณาสแกน QR Code จากหน้าจอเกมใหม่อีกครั้ง");
+                return;
+            }
 
-function sendMotion(gx, gy, gz) {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(gx + "," + gy + "," + gz);
-  }
-}
+            // ขออนุญาตใช้ Gyroscope ใน iOS / Android
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission().then(response => {
+                    if (response === 'granted') startPeer();
+                    else alert("ต้องกดอนุญาตใช้งาน Motion Sensor ก่อนเล่นนะครับ");
+                }).catch(console.error);
+            } else {
+                startPeer();
+            }
+        }
 
-function onOrientation(event) {
-  // beta = หน้า-หลัง, gamma = ซ้าย-ขวา, alpha = หมุนรอบตัว
-  const gx = event.beta || 0;
-  const gy = event.gamma || 0;
-  const gz = event.alpha || 0;
-  sendMotion(gx, gy, gz);
-}
+        function startPeer() {
+            document.getElementById("status").innerText = "🟡 กำลังค้นหาเครื่องเกม ID: " + hostId;
+            
+            // สร้าง Peer สำหรับมือถือ
+            peer = new Peer();
 
-document.getElementById("startBtn").addEventListener("click", async () => {
-  connect();
+            peer.on('open', (id) => {
+                // ยิงคำขอเชื่อมต่อไปยัง Unity WebGL ตาม gameId
+                conn = peer.connect(hostId);
 
-  // iOS 13+ ต้องขอ permission ก่อนถึงจะอ่าน DeviceOrientation ได้
-  if (typeof DeviceOrientationEvent !== "undefined" &&
-      typeof DeviceOrientationEvent.requestPermission === "function") {
-    try {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if (perm === "granted") {
-        window.addEventListener("deviceorientation", onOrientation);
-      } else {
-        statusEl.textContent = "ไม่ได้รับอนุญาตให้ใช้เซนเซอร์";
-      }
-    } catch (e) {
-      statusEl.textContent = "ขอ permission ไม่สำเร็จ: " + e;
-    }
-  } else {
-    // Android และเบราว์เซอร์อื่น ๆ ไม่ต้องขอ permission
-    window.addEventListener("deviceorientation", onOrientation);
-  }
-});
-</script>
+                conn.on('open', () => {
+                    document.getElementById("status").innerText = "🟢 เชื่อมต่อสำเร็จ! เหวี่ยงมือถือได้เลย";
+                    document.getElementById("status").style.color = "#4ade80";
+                    startSendingMotion();
+                });
+
+                conn.on('error', (err) => {
+                    document.getElementById("status").innerText = "🔴 เชื่อมต่อไม่สำเร็จ: " + err;
+                });
+            });
+
+            peer.on('error', (err) => {
+                document.getElementById("status").innerText = "🔴 เกิดข้อผิดพลาด: " + err.type;
+            });
+        }
+
+        function startSendingMotion() {
+            window.addEventListener('devicemotion', (event) => {
+                if (!conn || !conn.open) return;
+
+                let gx = event.rotationRate ? event.rotationRate.beta || 0 : 0;
+                let gy = event.rotationRate ? event.rotationRate.gamma || 0 : 0;
+                let gz = event.rotationRate ? event.rotationRate.alpha || 0 : 0;
+
+                // ส่งค่า Gyro เป็นข้อความชุดเดียวกันเข้า Unity
+                let dataString = `${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},0,0,0`;
+                conn.send(dataString);
+            });
+        }
+    </script>
 </body>
 </html>
