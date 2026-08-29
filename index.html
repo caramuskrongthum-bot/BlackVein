@@ -4,34 +4,75 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Tennis & Sword Controller</title>
-    <!-- โหลด PeerJS และ NippleJS (สำหรับ Joystick) -->
+    <!-- โหลด PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <style>
         * { touch-action: manipulation; user-select: none; }
-        body { font-family: sans-serif; text-align: center; background: #0f172a; color: #fff; padding: 20px; margin: 0; overflow: hidden; }
-        button { font-size: 18px; padding: 14px 28px; border-radius: 12px; background: #0284c7; color: white; border: none; font-weight: bold; width: 100%; margin-top: 10px; }
-        .status { margin-top: 10px; font-size: 15px; color: #fbbf24; font-weight: bold; }
+        body { 
+            font-family: sans-serif; 
+            text-align: center; 
+            background: #0f172a; 
+            color: #fff; 
+            padding: 20px; 
+            margin: 0; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+        }
         
-        /* โซนสำหรับวาง Joystick บนหน้าจอ */
-        #joystickZone {
+        .header-container { width: 100%; }
+        button.start-btn { 
+            font-size: 18px; 
+            padding: 14px 28px; 
+            border-radius: 12px; 
+            background: #0284c7; 
+            color: white; 
+            border: none; 
+            font-weight: bold; 
+            width: 100%; 
+            margin-top: 10px; 
+        }
+        .status { margin-top: 10px; font-size: 15px; color: #fbbf24; font-weight: bold; }
+
+        /* ปุ่มใหญ่กลางหน้าจอ */
+        #actionBtn {
+            flex: 1;
             width: 100%;
-            height: 250px;
             margin-top: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px dashed #334155;
-            border-radius: 16px;
-            position: relative;
+            margin-bottom: 30px;
+            background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            border: 4px solid #f87171;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.05s ease, background 0.1s ease;
+        }
+
+        /* Effect ตอนกดปุ่ม */
+        #actionBtn:active {
+            transform: scale(0.96);
+            background: radial-gradient(circle, #dc2626 0%, #991b1b 100%);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
         }
     </style>
 </head>
 <body>
-    <h2>🎾 Tennis & Sword Controller</h2>
-    <div id="status" class="status">🔴 ยังไม่ได้กดเชื่อมต่อ</div>
-    <button id="startBtn" onclick="initController()">1. อนุญาตเซนเซอร์ & เชื่อมต่อ</button>
+    <div class="header-container">
+        <h2>🎾 Controller</h2>
+        <div id="status" class="status">🔴 ยังไม่ได้กดเชื่อมต่อ</div>
+        <button id="startBtn" class="start-btn" onclick="initController()">1. อนุญาตเซนเซอร์ & เชื่อมต่อ</button>
+    </div>
 
-    <!-- โซนจอยสติ๊ก -->
-    <div id="joystickZone"></div>
+    <!-- ปุ่ม Action ใหญ่กลางจอ -->
+    <button id="actionBtn" onclick="sendButtonClick()">TRIGGER</button>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -40,9 +81,9 @@
         let peer;
         let conn;
 
-        // ค่า Gyro และ Joystick ปัจจุบัน
+        // ค่า Gyro ปัจจุบัน
         let gyroX = 0, gyroY = 0, gyroZ = 0;
-        let moveX = 0, moveY = 0;
+        let isButtonPressed = 0; // 1 คือกด, 0 คือปล่อย
 
         function initController() {
             if (!hostId) {
@@ -61,67 +102,40 @@
         }
 
         function startPeer() {
-    document.getElementById("status").innerText = "🟡 กำลังค้นหาเครื่องเกม ID: " + hostId;
-    peer = new Peer();
+            document.getElementById("status").innerText = "🟡 กำลังค้นหาเครื่องเกม ID: " + hostId;
+            peer = new Peer();
 
-    peer.on('open', (id) => {
-        conn = peer.connect(hostId);
+            peer.on('open', (id) => {
+                conn = peer.connect(hostId);
 
-        conn.on('open', () => {
-            document.getElementById("status").innerText = "🟢 เชื่อมต่อสำเร็จ! ใช้ Joystick เดินและเหวี่ยงมือถือได้เลย";
-            document.getElementById("status").style.color = "#4ade80";
-            document.getElementById("startBtn").style.display = "none"; // ซ่อนปุ่มเมื่อต่อติด
-            
-            setupJoystick();
-            startSendingData();
-        });
+                conn.on('open', () => {
+                    document.getElementById("status").innerText = "🟢 เชื่อมต่อสำเร็จ!";
+                    document.getElementById("status").style.color = "#4ade80";
+                    document.getElementById("startBtn").style.display = "none";
+                    
+                    setupMotionSensor();
+                    startSendingData();
+                });
 
-        // --- เพิ่มโค้ดส่วนนี้: รับข้อความสั่งสั่นจาก Unity ---
-        conn.on('data', (data) => {
-            if (data === 'vibrate') {
-                if ('vibrate' in navigator) {
-                    navigator.vibrate(100); // สั่น 100 มิลลิวินาที
-                }
-            }
-        });
+                conn.on('data', (data) => {
+                    if (data === 'vibrate') {
+                        if ('vibrate' in navigator) {
+                            navigator.vibrate(100);
+                        }
+                    }
+                });
 
-        conn.on('error', (err) => {
-            document.getElementById("status").innerText = "🔴 เชื่อมต่อไม่สำเร็จ: " + err;
-        });
-    });
-
-    peer.on('error', (err) => {
-        document.getElementById("status").innerText = "🔴 เกิดข้อผิดพลาด: " + err.type;
-    });
-}
-
-        // สร้าง Virtual Joystick
-        function setupJoystick() {
-            const options = {
-                zone: document.getElementById('joystickZone'),
-                mode: 'static',
-                position: { left: '50%', top: '50%' },
-                color: '#0284c7',
-                size: 130
-            };
-            
-            const manager = nipplejs.create(options);
-
-            manager.on('move', (evt, data) => {
-                if (data && data.vector) {
-                    // ส่งค่าเป็น -1.0 ถึง 1.0 (X = ซ้าย/ขวา, Y = บน/ล่าง)
-                    moveX = data.vector.x;
-                    moveY = data.vector.y;
-                }
+                conn.on('error', (err) => {
+                    document.getElementById("status").innerText = "🔴 เชื่อมต่อไม่สำเร็จ: " + err;
+                });
             });
 
-            manager.on('end', () => {
-                // ปล่อยมือแล้วคืนค่าเป็น 0
-                moveX = 0;
-                moveY = 0;
+            peer.on('error', (err) => {
+                document.getElementById("status").innerText = "🔴 เกิดข้อผิดพลาด: " + err.type;
             });
+        }
 
-            // ดักจับ Motion Sensors
+        function setupMotionSensor() {
             window.addEventListener('devicemotion', (event) => {
                 gyroX = event.rotationRate ? event.rotationRate.beta || 0 : 0;
                 gyroY = event.rotationRate ? event.rotationRate.gamma || 0 : 0;
@@ -129,13 +143,26 @@
             });
         }
 
-        // ส่งข้อมูลทั้ง Gyro และ Joystick เข้า Unity พร้อมกันทุกๆ Frame (60 FPS / ~16ms)
+        // ฟังก์ชันสั่งงานเมื่อกดปุ่มใหญ่กลางหน้าจอ
+        function sendButtonClick() {
+            // 1. สั่งสั่นที่มือถือเมื่อกด
+            if ('vibrate' in navigator) {
+                navigator.vibrate(50);
+            }
+
+            // 2. ส่ง Event คำสั่งเดี่ยวทันทีไปยัง Unity
+            if (conn && conn.open) {
+                conn.send("ACTION_CLICK");
+            }
+        }
+
+        // ส่งข้อมูล Gyro + สถานะปุ่มเข้า Unity แบบ Stream (60 FPS / ~16ms)
         function startSendingData() {
             setInterval(() => {
                 if (!conn || !conn.open) return;
 
-                // Format: GyroX, GyroY, GyroZ, JoyX, JoyY
-                let dataString = `${gyroX.toFixed(2)},${gyroY.toFixed(2)},${gyroZ.toFixed(2)},${moveX.toFixed(2)},${moveY.toFixed(2)}`;
+                // Format: GyroX, GyroY, GyroZ, ButtonPressed, 0
+                let dataString = `${gyroX.toFixed(2)},${gyroY.toFixed(2)},${gyroZ.toFixed(2)},${isButtonPressed},0`;
                 conn.send(dataString);
             }, 16); 
         }
