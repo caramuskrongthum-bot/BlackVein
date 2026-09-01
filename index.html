@@ -3,76 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Tennis & Sword Controller</title>
-    <!-- โหลด PeerJS -->
+    <title>BLACK VEIN</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Pixel&display=swap" rel="stylesheet">
+    
     <style>
-        * { touch-action: manipulation; user-select: none; }
+        * { 
+            touch-action: manipulation; 
+            user-select: none; 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: "Geist Pixel", sans-serif;
+        }
+        
         body { 
-            font-family: sans-serif; 
             text-align: center; 
-            background: #0f172a; 
+            background: #090d16; 
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.12) 0px, transparent 50%);
             color: #fff; 
             padding: 20px; 
-            margin: 0; 
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: space-between;
             height: 100vh;
-            box-sizing: border-box;
         }
-        
-        .header-container { width: 100%; }
+
+        /* Canvas สำหรับเอฟเฟกต์ Mouse/Touch Trail */
+        #trail-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes strokeGlow {
+            0% { border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 0 10px rgba(255, 255, 255, 0.05); }
+            50% { border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 0 20px rgba(255, 255, 255, 0.25); }
+            100% { border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 0 10px rgba(255, 255, 255, 0.05); }
+        }
+
+        .header-container { 
+            width: 100%; 
+            max-width: 400px;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            padding: 16px 20px;
+            border-radius: 5px;
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            animation: strokeGlow 4s infinite ease-in-out, fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            position: relative;
+            z-index: 1;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status { margin-top: 6px; font-size: 14px; color: #fbbf24; font-weight: bold; }
+
         button.start-btn { 
-            font-size: 18px; 
-            padding: 14px 28px; 
-            border-radius: 12px; 
-            background: #0284c7; 
+            font-size: 16px; 
+            padding: 12px 24px; 
+            border-radius: 5px; 
+            background: linear-gradient(135deg, #0284c7, #2563eb); 
             color: white; 
             border: none; 
             font-weight: bold; 
             width: 100%; 
-            margin-top: 10px; 
+            margin-top: 12px; 
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3);
         }
-        .status { margin-top: 10px; font-size: 15px; color: #fbbf24; font-weight: bold; }
 
-        /* ปุ่มใหญ่กลางหน้าจอ */
-        #actionBtn {
+        button.start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+        }
+
+        /* --- ปุ่มทรงกากบาท (D-Pad Cross Layout) --- */
+        .controls-wrapper {
             flex: 1;
-            width: 100%;
-            margin-top: 20px;
-            margin-bottom: 30px;
-            background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
-            color: white;
-            font-size: 32px;
-            font-weight: bold;
-            border: 4px solid #f87171;
-            border-radius: 24px;
-            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: transform 0.05s ease, background 0.1s ease;
+            width: 100%;
+            position: relative;
+            z-index: 1;
         }
 
-        /* Effect ตอนกดปุ่ม */
-        #actionBtn:active {
-            transform: scale(0.96);
-            background: radial-gradient(circle, #dc2626 0%, #991b1b 100%);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 75px);
+            grid-template-rows: repeat(3, 75px);
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            margin: auto;
+            border-radius: 50%;
+            color: white;
+            font-size: 26px;
+            font-weight: bold;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s ease, filter 0.1s ease, box-shadow 0.2s ease;
+            backdrop-filter: blur(8px);
+            transform: scale(1.2);
+            text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .action-btn:active {
+            transform: scale(1);
+            filter: brightness(1.4);
+        }
+
+        /* กำหนดตำแหน่งรูปบวก และสไตล์แต่ละปุ่ม */
+        .btn-y {
+            grid-column: 2;
+            grid-row: 1;
+            background: radial-gradient(circle, #eab308 0%, #ca8a04 100%);
+            box-shadow: 0 4px 15px rgba(234, 179, 8, 0.4);
+        }
+
+        .btn-x {
+            grid-column: 1;
+            grid-row: 2;
+            background: radial-gradient(circle, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-b {
+            grid-column: 3;
+            grid-row: 2;
+            background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-a {
+            grid-column: 2;
+            grid-row: 3;
+            background: radial-gradient(circle, #22c55e 0%, #15803d 100%);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        }
+
+        .center-decor {
+            grid-column: 2;
+            grid-row: 2;
+            width: 24px;
+            height: 24px;
+            margin: auto;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
+    <canvas id="trail-canvas"></canvas>
+    <br>
     <div class="header-container">
-        <h2>🎾 Controller</h2>
-        <div id="status" class="status">🔴 ยังไม่ได้กดเชื่อมต่อ</div>
-        <button id="startBtn" class="start-btn" onclick="initController()">1. อนุญาตเซนเซอร์ & เชื่อมต่อ</button>
+        <h2>BLACK VEIN</h2>
+        <div id="status" class="status">Disconnect</div>
+        <button id="startBtn" class="start-btn" onclick="initController()">Connect</button>
     </div>
 
-    <!-- ปุ่ม Action ใหญ่กลางจอ -->
-    <button id="actionBtn" onclick="sendButtonClick()">TRIGGER</button>
+    <div class="controls-wrapper">
+        <div class="dpad-container">
+            <button class="action-btn btn-y" onclick="sendButtonClick('Y')">Y</button>
+            <button class="action-btn btn-x" onclick="sendButtonClick('X')">X</button>
+            <div class="center-decor"></div>
+            <button class="action-btn btn-b" onclick="sendButtonClick('B')">B</button>
+            <button class="action-btn btn-a" onclick="sendButtonClick('A')">A</button>
+        </div>
+    </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -81,9 +212,8 @@
         let peer;
         let conn;
 
-        // ค่า Gyro ปัจจุบัน
         let gyroX = 0, gyroY = 0, gyroZ = 0;
-        let isButtonPressed = 0; // 1 คือกด, 0 คือปล่อย
+        let isButtonPressed = 0;
 
         function initController() {
             if (!hostId) {
@@ -102,15 +232,15 @@
         }
 
         function startPeer() {
-            document.getElementById("status").innerText = "🟡 กำลังค้นหาเครื่องเกม ID: " + hostId;
+            document.getElementById("status").innerText = "Searching console ID: " + hostId;
             peer = new Peer();
 
             peer.on('open', (id) => {
                 conn = peer.connect(hostId);
 
                 conn.on('open', () => {
-                    document.getElementById("status").innerText = "🟢 เชื่อมต่อสำเร็จ!";
-                    document.getElementById("status").style.color = "#4ade80";
+                    document.getElementById("status").innerText = "Connected!";
+                    document.getElementById("status").style.color = "#22c55e";
                     document.getElementById("startBtn").style.display = "none";
                     
                     setupMotionSensor();
@@ -143,29 +273,93 @@
             });
         }
 
-        // ฟังก์ชันสั่งงานเมื่อกดปุ่มใหญ่กลางหน้าจอ
-        function sendButtonClick() {
-            // 1. สั่งสั่นที่มือถือเมื่อกด
+        function sendButtonClick(btnName) {
             if ('vibrate' in navigator) {
                 navigator.vibrate(50);
             }
 
-            // 2. ส่ง Event คำสั่งเดี่ยวทันทีไปยัง Unity
             if (conn && conn.open) {
-                conn.send("ACTION_CLICK");
+                conn.send(`ACTION_${btnName}`);
             }
         }
 
-        // ส่งข้อมูล Gyro + สถานะปุ่มเข้า Unity แบบ Stream (60 FPS / ~16ms)
         function startSendingData() {
             setInterval(() => {
                 if (!conn || !conn.open) return;
 
-                // Format: GyroX, GyroY, GyroZ, ButtonPressed, 0
                 let dataString = `${gyroX.toFixed(2)},${gyroY.toFixed(2)},${gyroZ.toFixed(2)},${isButtonPressed},0`;
                 conn.send(dataString);
             }, 16); 
         }
+    </script>
+
+    <script>
+        const canvas = document.getElementById("trail-canvas");
+        const ctx = canvas.getContext("2d");
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 4 + 1;
+                this.speedX = (Math.random() - 0.5) * 1.5;
+                this.speedY = (Math.random() - 0.5) * 1.5;
+                this.color = `hsl(${Math.random() * 60 + 190}, 100%, 70%)`;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.02 + 0.015;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createParticles(e) {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            for (let i = 0; i < 2; i++) {
+                particles.push(new Particle(x, y));
+            }
+        }
+
+        window.addEventListener("mousemove", createParticles);
+        window.addEventListener("touchmove", createParticles);
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                    i--;
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
     </script>
 </body>
 </html>
