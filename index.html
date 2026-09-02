@@ -195,13 +195,22 @@
         <button id="startBtn" class="start-btn" onclick="initController()">Connect</button>
     </div>
 
+    <!-- ปรับ Event มือถือ (ontouchstart/ontouchend) และคอม (onmousedown/onmouseup) ให้ส่งสถานะ DOWN / UP -->
     <div class="controls-wrapper">
         <div class="dpad-container">
-            <button class="action-btn btn-y" onclick="sendButtonClick('Y')">Y</button>
-            <button class="action-btn btn-x" onclick="sendButtonClick('X')">X</button>
+            <button class="action-btn btn-y" 
+                    ontouchstart="sendButtonState('Y', 'DOWN')" ontouchend="sendButtonState('Y', 'UP')"
+                    onmousedown="sendButtonState('Y', 'DOWN')" onmouseup="sendButtonState('Y', 'UP')">Y</button>
+            <button class="action-btn btn-x" 
+                    ontouchstart="sendButtonState('X', 'DOWN')" ontouchend="sendButtonState('X', 'UP')"
+                    onmousedown="sendButtonState('X', 'DOWN')" onmouseup="sendButtonState('X', 'UP')">X</button>
             <div class="center-decor"></div>
-            <button class="action-btn btn-b" onclick="sendButtonClick('B')">B</button>
-            <button class="action-btn btn-a" onclick="sendButtonClick('A')">A</button>
+            <button class="action-btn btn-b" 
+                    ontouchstart="sendButtonState('B', 'DOWN')" ontouchend="sendButtonState('B', 'UP')"
+                    onmousedown="sendButtonState('B', 'DOWN')" onmouseup="sendButtonState('B', 'UP')">B</button>
+            <button class="action-btn btn-a" 
+                    ontouchstart="sendButtonState('A', 'DOWN')" ontouchend="sendButtonState('A', 'UP')"
+                    onmousedown="sendButtonState('A', 'DOWN')" onmouseup="sendButtonState('A', 'UP')">A</button>
         </div>
     </div>
 
@@ -273,13 +282,14 @@
             });
         }
 
-        function sendButtonClick(btnName) {
-            if ('vibrate' in navigator) {
-                navigator.vibrate(50);
+        // ปรับปรุงฟังก์ชันส่งสัญญาณให้แยก DOWN และ UP
+        function sendButtonState(btnName, state) {
+            if (state === 'DOWN' && 'vibrate' in navigator) {
+                navigator.vibrate(40);
             }
 
             if (conn && conn.open) {
-                conn.send(`ACTION_${btnName}`);
+                conn.send(`ACTION_${btnName}_${state}`);
             }
         }
 
