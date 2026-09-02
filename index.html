@@ -35,7 +35,6 @@
             height: 100vh;
         }
 
-        /* Canvas สำหรับเอฟเฟกต์ Mouse/Touch Trail */
         #trail-canvas {
             position: fixed;
             top: 0;
@@ -99,10 +98,42 @@
             box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
         }
 
+        /* --- ปุ่ม Utility (Calibrate / Auto Center) --- */
+        .extra-controls {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            max-width: 320px;
+            margin-top: 15px;
+            z-index: 1;
+        }
+
+        .utility-btn {
+            flex: 1;
+            padding: 10px 8px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #e2e8f0;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 6px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .utility-btn:active {
+            transform: scale(0.95);
+            background: rgba(56, 189, 248, 0.25);
+            border-color: #38bdf8;
+        }
+
         /* --- ปุ่มทรงกากบาท (D-Pad Cross Layout) --- */
         .controls-wrapper {
             flex: 1;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
@@ -118,6 +149,7 @@
             justify-content: center;
             align-items: center;
             animation: fadeInUp 0.8s ease forwards;
+            margin-top: 10px;
         }
 
         .action-btn {
@@ -144,7 +176,6 @@
             filter: brightness(1.4);
         }
 
-        /* กำหนดตำแหน่งรูปบวก และสไตล์แต่ละปุ่ม */
         .btn-y {
             grid-column: 2;
             grid-row: 1;
@@ -195,8 +226,13 @@
         <button id="startBtn" class="start-btn" onclick="initController()">Connect</button>
     </div>
 
-    <!-- ปรับ Event มือถือ (ontouchstart/ontouchend) และคอม (onmousedown/onmouseup) ให้ส่งสถานะ DOWN / UP -->
     <div class="controls-wrapper">
+        <!-- เพิ่มปุ่ม Calibrate และ Toggle Auto Center -->
+        <div class="extra-controls">
+            <button class="utility-btn" onclick="sendAction('CALIBRATE')">🎯 Recenter</button>
+            <button class="utility-btn" onclick="sendAction('TOGGLE_AUTOCENTER')">🔄 Auto Center</button>
+        </div>
+
         <div class="dpad-container">
             <button class="action-btn btn-y" 
                     ontouchstart="sendButtonState('Y', 'DOWN')" ontouchend="sendButtonState('Y', 'UP')"
@@ -282,7 +318,16 @@
             });
         }
 
-        // ปรับปรุงฟังก์ชันส่งสัญญาณให้แยก DOWN และ UP
+        // ฟังก์ชันสำหรับส่งคำสั่งแอ็กชันเดี่ยว เช่น CALIBRATE / TOGGLE_AUTOCENTER
+        function sendAction(actionType) {
+            if ('vibrate' in navigator) {
+                navigator.vibrate(50);
+            }
+            if (conn && conn.open) {
+                conn.send(`ACTION_${actionType}`);
+            }
+        }
+
         function sendButtonState(btnName, state) {
             if (state === 'DOWN' && 'vibrate' in navigator) {
                 navigator.vibrate(40);
